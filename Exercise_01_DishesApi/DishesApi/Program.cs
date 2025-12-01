@@ -1,6 +1,13 @@
+using DishesAPI.DbContexts;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+// register the DbContext on the container, getting the
+// connection string from appSettings   
+builder.Services.AddDbContext<DishesDbContext>(o => o.UseSqlite(
+    builder.Configuration["ConnectionStrings:DishesDBConnectionString"]));
 
 var app = builder.Build();
 
@@ -25,6 +32,14 @@ app.MapGet("/weatherforecast", () =>
         .ToArray();
     return forecast;
 });
+
+// recreate & migrate the database on each run, for demo purposes
+using (var serviceScope = app.Services.GetService<IServiceScopeFactory>().CreateScope())
+{
+    var context = serviceScope.ServiceProvider.GetRequiredService<DishesDbContext>();
+    context.Database.EnsureDeleted();
+    context.Database.Migrate();
+}
 
 app.Run();
 
