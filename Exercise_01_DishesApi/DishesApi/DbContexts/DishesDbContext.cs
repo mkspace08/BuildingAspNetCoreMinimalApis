@@ -1,9 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
-using DishesAPI.Entities;
+using DishesApi.Entities;
 using System.IO;
 
-namespace DishesAPI.DbContexts;
+namespace DishesApi.DbContexts;
 
 public class DishesDbContext : DbContext
 {

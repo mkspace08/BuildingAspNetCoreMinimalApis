@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 
-namespace DishesAPI.Entities;
+namespace DishesApi.Entities;
 
 public class Ingredient
 {

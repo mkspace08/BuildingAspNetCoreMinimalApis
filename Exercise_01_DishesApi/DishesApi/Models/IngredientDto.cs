@@ -1,4 +1,4 @@
-namespace DishesAPI.Models;
+namespace DishesApi.Models;
 
 public class IngredientDto
 {
