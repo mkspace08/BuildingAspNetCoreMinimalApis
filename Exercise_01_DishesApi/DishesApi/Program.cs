@@ -30,7 +30,10 @@ var summaries = new[]
     "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
 };
 
-app.MapGet("/dishes", async Task<Ok<List<DishDto>>> (DishesDbContext dishesDbContext, IMapper mapper) =>
+// Group all /dishes endpoints
+var dishes = app.MapGroup("/dishes");
+
+dishes.MapGet("", async Task<Ok<List<DishDto>>> (DishesDbContext dishesDbContext, IMapper mapper) =>
 {
     var dishes = await dishesDbContext.Dishes.ToListAsync();
     var dishDtos = mapper.Map<List<DishDto>>(dishes);
@@ -38,7 +41,7 @@ app.MapGet("/dishes", async Task<Ok<List<DishDto>>> (DishesDbContext dishesDbCon
 });
 
 // Get first dish that matches the provided name (case-insensitive, substring match)
-app.MapGet("/dishes/{name}", async Task<Results<NotFound, Ok<DishDto>>> (string name, DishesDbContext dishesDbContext, ClaimsPrincipal claimsPrincipal, IMapper mapper) =>
+dishes.MapGet("/{name}", async Task<Results<NotFound, Ok<DishDto>>> (string name, DishesDbContext dishesDbContext, ClaimsPrincipal claimsPrincipal, IMapper mapper) =>
 {
     Console.WriteLine($"User: {claimsPrincipal.Identity?.Name ?? "anonymous"} is searching for dish with name containing: {name}, Is authenticated: {claimsPrincipal.Identity?.IsAuthenticated}");
 
@@ -51,7 +54,7 @@ app.MapGet("/dishes/{name}", async Task<Results<NotFound, Ok<DishDto>>> (string 
     return TypedResults.Ok(dishDto);
 });
 
-app.MapGet("/dishes/{id:guid}", async Task<Results<NotFound, Ok<DishDto>>> (Guid id, DishesDbContext dishesDbContext, IMapper mapper) =>
+dishes.MapGet("/{id:guid}", async Task<Results<NotFound, Ok<DishDto>>> (Guid id, DishesDbContext dishesDbContext, IMapper mapper) =>
 {
     var dish = await dishesDbContext.Dishes
         //.Include(d => d.Ingredients)
@@ -60,9 +63,10 @@ app.MapGet("/dishes/{id:guid}", async Task<Results<NotFound, Ok<DishDto>>> (Guid
         return TypedResults.NotFound();
     var dishDto = mapper.Map<DishDto>(dish);
     return TypedResults.Ok(dishDto);
-});
+})
+.WithName("GetDish");
 
-app.MapGet("/dishes/{dishId}/ingredients", async Task<Results<NotFound, Ok<List<IngredientDto>>>> (Guid dishId, DishesDbContext dishesDbContext, IMapper mapper) =>
+dishes.MapGet("/{dishId}/ingredients", async Task<Results<NotFound, Ok<List<IngredientDto>>>> (Guid dishId, DishesDbContext dishesDbContext, IMapper mapper) =>
 {
     var dish = await dishesDbContext.Dishes
         .Include(d => d.Ingredients)
@@ -73,7 +77,10 @@ app.MapGet("/dishes/{dishId}/ingredients", async Task<Results<NotFound, Ok<List<
     return TypedResults.Ok(ingredientDtos);
 });
 
-app.MapPost("/dishes", async Task<Results<BadRequest, Created<DishDto>>> (CreateDishDto createDishDto, DishesDbContext dishesDbContext, IMapper mapper) =>
+dishes.MapPost("", async Task<Results<BadRequest, CreatedAtRoute<DishDto>>> (
+    CreateDishDto createDishDto,
+    DishesDbContext dishesDbContext,
+    IMapper mapper) =>
 {
     if (string.IsNullOrWhiteSpace(createDishDto.Name))
         return TypedResults.BadRequest();
@@ -83,7 +90,36 @@ app.MapPost("/dishes", async Task<Results<BadRequest, Created<DishDto>>> (Create
     dishesDbContext.Dishes.Add(dishEntity);
     await dishesDbContext.SaveChangesAsync();
     var createdDto = mapper.Map<DishDto>(dishEntity);
-    return TypedResults.Created($"/dishes/{dishEntity.Id}", createdDto);
+    return TypedResults.CreatedAtRoute(createdDto, "GetDish", new { id = createdDto.Id });
+});
+
+dishes.MapPut("/{id:guid}", async Task<Results<NotFound, NoContent>> (
+    Guid id,
+    UpdateDishDto updateDishDto,
+    DishesDbContext dishesDbContext,
+    IMapper mapper) =>
+{
+    var dish = await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == id);
+    if (dish is null)
+        return TypedResults.NotFound();
+
+    // Map updated fields from DTO to entity
+    mapper.Map(updateDishDto, dish);
+    await dishesDbContext.SaveChangesAsync();
+    return TypedResults.NoContent();
+});
+
+dishes.MapDelete("/{id:guid}", async Task<Results<NotFound, NoContent>> (
+    Guid id,
+    DishesDbContext dishesDbContext) =>
+{
+    var dish = await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == id);
+    if (dish is null)
+        return TypedResults.NotFound();
+
+    dishesDbContext.Dishes.Remove(dish);
+    await dishesDbContext.SaveChangesAsync();
+    return TypedResults.NoContent();
 });
 
 // recreate & migrate the database on each run, for demo purposes
