@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using DishesApi.EndpointFilters;
 
 
 namespace DishesApi.EndpointBuilders;
@@ -19,8 +20,12 @@ public static class DishesEndpointsBuilder
         dishes.MapGet("/{name}", GetByNameAsync);
         dishes.MapGet("/{id:guid}", GetByIdAsync).WithName("GetDish");
         dishes.MapPost("", CreateAsync);
-        dishes.MapPut("/{id:guid}", UpdateAsync);
-        dishes.MapDelete("/{id:guid}", DeleteAsync);
+        dishes.MapPut("/{id:guid}", UpdateAsync)
+            .AddEndpointFilter(new IsDishLockedFilter(new Guid("fd630a57-2352-4731-b25c-db9cc7601b16")))
+            .AddEndpointFilter<DishNotFoundFilter>();
+        dishes.MapDelete("/{id:guid}", DeleteAsync)
+            .AddEndpointFilter(new IsDishLockedFilter(new Guid("fd630a57-2352-4731-b25c-db9cc7601b16")))
+            .AddEndpointFilter<DishNotFoundFilter>();
     }
 
     public static async Task<Ok<List<DishDto>>> GetAllAsync(DishesDbContext db, IMapper mapper, [FromServices] ILogger<DishDto> logger)
