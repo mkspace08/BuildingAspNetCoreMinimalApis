@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using DishesApi.EndpointFilters;
-
+using FluentValidation;
 
 namespace DishesApi.EndpointBuilders;
 
@@ -19,8 +19,11 @@ public static class DishesEndpointsBuilder
         dishes.MapGet("", GetAllAsync);
         dishes.MapGet("/{name}", GetByNameAsync);
         dishes.MapGet("/{id:guid}", GetByIdAsync).WithName("GetDish");
-        dishes.MapPost("", CreateAsync);
+        dishes.MapPost("", CreateAsync)
+            .AddEndpointFilter<FluentValidationFilter<CreateDishDto>>();
         dishes.MapPut("/{id:guid}", UpdateAsync)
+            .AddEndpointFilter<FluentValidationFilter<UpdateDishDto>>()
+            //.ProducesValidationProblem()
             .AddEndpointFilter(new IsDishLockedFilter(new Guid("fd630a57-2352-4731-b25c-db9cc7601b16")))
             .AddEndpointFilter<DishNotFoundFilter>();
         dishes.MapDelete("/{id:guid}", DeleteAsync)
@@ -30,7 +33,6 @@ public static class DishesEndpointsBuilder
 
     public static async Task<Ok<List<DishDto>>> GetAllAsync(DishesDbContext db, IMapper mapper, [FromServices] ILogger<DishDto> logger)
     {
-        throw new Exception("Test exception for monitoring");
         logger.LogInformation("Fetching all dishes");
         var dishes = await db.Dishes.ToListAsync();
         var dishDtos = mapper.Map<List<DishDto>>(dishes);

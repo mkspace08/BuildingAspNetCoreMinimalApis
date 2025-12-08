@@ -1,6 +1,8 @@
 using DishesApi.DbContexts;
 using Microsoft.EntityFrameworkCore;
 using DishesApi.EndpointBuilders;
+using FluentValidation;
+using DishesApi.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,8 @@ builder.Services.AddDbContext<DishesDbContext>(o => o.UseSqlite(
 // This enables object-object mapping for DTOs and entities
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
+// Register FluentValidation validators
+builder.Services.AddValidatorsFromAssemblyContaining<CreateDishDtoValidator>();
 
 var app = builder.Build();
 
