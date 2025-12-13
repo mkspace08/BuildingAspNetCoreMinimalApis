@@ -15,15 +15,16 @@ public static class DishesEndpointsBuilder
 {
     public static void RegisterDishesEndpoints(this IEndpointRouteBuilder app)
     {
-        var dishes = app.MapGroup("/dishes");
+        var dishes = app.MapGroup("/dishes").RequireAuthorization(); // Require auth for all /dishes endpoints
+
         dishes.MapGet("", GetAllAsync);
         dishes.MapGet("/{name}", GetByNameAsync);
         dishes.MapGet("/{id:guid}", GetByIdAsync).WithName("GetDish");
         dishes.MapPost("", CreateAsync)
+            .RequireAuthorization("RequireAdminFromBelgium")
             .AddEndpointFilter<FluentValidationFilter<CreateDishDto>>();
         dishes.MapPut("/{id:guid}", UpdateAsync)
             .AddEndpointFilter<FluentValidationFilter<UpdateDishDto>>()
-            //.ProducesValidationProblem()
             .AddEndpointFilter(new IsDishLockedFilter(new Guid("fd630a57-2352-4731-b25c-db9cc7601b16")))
             .AddEndpointFilter<DishNotFoundFilter>();
         dishes.MapDelete("/{id:guid}", DeleteAsync)
@@ -31,11 +32,11 @@ public static class DishesEndpointsBuilder
             .AddEndpointFilter<DishNotFoundFilter>();
     }
 
-    public static async Task<Ok<List<DishDto>>> GetAllAsync(DishesDbContext db, IMapper mapper, [FromServices] ILogger<DishDto> logger)
+    public static async Task<Ok<IEnumerable<DishDto>>> GetAllAsync(DishesDbContext db, IMapper mapper, [FromServices] ILogger<DishDto> logger)
     {
         logger.LogInformation("Fetching all dishes");
         var dishes = await db.Dishes.ToListAsync();
-        var dishDtos = mapper.Map<List<DishDto>>(dishes);
+        var dishDtos = mapper.Map<IEnumerable<DishDto>>(dishes);
         return TypedResults.Ok(dishDtos);
     }
 

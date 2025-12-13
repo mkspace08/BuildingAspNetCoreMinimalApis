@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using DishesApi.EndpointBuilders;
 using FluentValidation;
 using DishesApi.Validators;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,20 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 // Register FluentValidation validators
 builder.Services.AddValidatorsFromAssemblyContaining<CreateDishDtoValidator>();
+
+// Configure JWT authentication using settings from appsettings.json
+
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer();
+
+builder.Services.AddAuthorization();
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("RequireAdminFromBelgium", policy =>
+        policy
+            .RequireRole("admin")
+            .RequireClaim("country", "Belgium"));
 
 var app = builder.Build();
 
@@ -55,7 +70,26 @@ if (!app.Environment.IsDevelopment())
     }
 }
 
+app.Use(async (context, next) =>
+{
+    var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+    if (!string.IsNullOrEmpty(authHeader))
+    {
+        Console.WriteLine($"Authorization header: {authHeader}");
+        // If you want to log just the token part:
+        if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            var token = authHeader.Substring("Bearer ".Length).Trim();
+           // Console.WriteLine($"JWT token: {token}");
+        }
+    }
+    await next();
+});
+
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Register endpoints directly
 app.RegisterDishesEndpoints();
@@ -68,6 +102,14 @@ using (var serviceScope = app.Services.GetService<IServiceScopeFactory>().Create
     var context = serviceScope.ServiceProvider.GetRequiredService<DishesDbContext>();
     context.Database.EnsureDeleted();
     context.Database.Migrate();
+}
+
+var signingKeys = builder.Configuration.GetSection("Authentication:Schemes:Bearer:SigningKeys").GetChildren();
+foreach (var key in signingKeys)
+{
+    var value = key["Value"];
+    var issuer = key["Issuer"];
+    Console.WriteLine($"Signing key: {value}, Issuer: {issuer}");
 }
 
 app.Run();
