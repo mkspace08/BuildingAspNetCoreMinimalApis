@@ -17,19 +17,57 @@ public static class DishesEndpointsBuilder
     {
         var dishes = app.MapGroup("/dishes").RequireAuthorization(); // Require auth for all /dishes endpoints
 
-        dishes.MapGet("", GetAllAsync);
-        dishes.MapGet("/{name}", GetByNameAsync);
-        dishes.MapGet("/{id:guid}", GetByIdAsync).WithName("GetDish");
+        dishes.MapGet("", GetAllAsync)
+            .WithName("GetDishes")
+            //.WithOpenApi()
+            .WithSummary("Get all dishes.")
+            .WithDescription("Returns the complete list of dishes.");
+
+        dishes.MapGet("/{name}", GetByNameAsync)
+            .AllowAnonymous()
+            .WithName("GetDishByName")
+            //.WithOpenApi()
+            //.WithOpenApi(operation =>
+            //{
+            //    operation.Deprecated = true; // name-based lookups are deprecated
+            //    return operation;
+            //})
+            .WithName("GetDishByName")
+            .WithSummary("Get a dish by name.")
+            .WithDescription("Gets a dish by matching the provided name (case-insensitive, partial match).");
+
+        dishes.MapGet("/{id:guid}", GetByIdAsync)
+            .WithName("GetDish")
+            //.WithOpenApi()
+            .WithSummary("Get a dish by id.")
+            .WithDescription("Gets a single dish resource by its unique GUID identifier.");
+
         dishes.MapPost("", CreateAsync)
             .RequireAuthorization("RequireAdminFromBelgium")
-            .AddEndpointFilter<FluentValidationFilter<CreateDishDto>>();
+            .AddEndpointFilter<FluentValidationFilter<CreateDishDto>>()
+            .WithName("CreateDish")
+            //commented beacuse of runtime error, trye to reference Microsoft.OpenApi.Models,
+            //but is not present in newer versions of  Microsoft.AspNetCore.OpenApi
+            //.WithOpenApi() 
+            .WithSummary("Create a new dish.")
+            .WithDescription("Creates a new dish resource and returns the created representation, including its generated identifier.");
+
         dishes.MapPut("/{id:guid}", UpdateAsync)
             .AddEndpointFilter<FluentValidationFilter<UpdateDishDto>>()
             .AddEndpointFilter(new IsDishLockedFilter(new Guid("fd630a57-2352-4731-b25c-db9cc7601b16")))
-            .AddEndpointFilter<DishNotFoundFilter>();
+            .AddEndpointFilter<DishNotFoundFilter>()
+            .WithName("UpdateDish")
+            //.WithOpenApi()
+            .WithSummary("Update an existing dish.")
+            .WithDescription("Updates all mutable fields of an existing dish identified by its GUID.");
+
         dishes.MapDelete("/{id:guid}", DeleteAsync)
             .AddEndpointFilter(new IsDishLockedFilter(new Guid("fd630a57-2352-4731-b25c-db9cc7601b16")))
-            .AddEndpointFilter<DishNotFoundFilter>();
+            .AddEndpointFilter<DishNotFoundFilter>()
+            .WithName("DeleteDish")
+            //.WithOpenApi()
+            .WithSummary("Delete a dish.")
+            .WithDescription("Deletes a dish identified by its GUID if it is not locked.");
     }
 
     public static async Task<Ok<IEnumerable<DishDto>>> GetAllAsync(DishesDbContext db, IMapper mapper, [FromServices] ILogger<DishDto> logger)
@@ -44,7 +82,7 @@ public static class DishesEndpointsBuilder
     {
         logger.LogInformation("Fetching dish by name: {Name}", name);
         var lowered = name.ToLower();
-        var dish = await db.Dishes.FirstOrDefaultAsync(d => d.Name.ToLower().Contains(lowered));
+        var dish = await db.Dishes.AsNoTracking().FirstOrDefaultAsync(d => d.Name.ToLower().Contains(lowered));
         if (dish is null)
         {
             logger.LogWarning("Dish not found by name: {Name}", name);
@@ -57,7 +95,7 @@ public static class DishesEndpointsBuilder
     public static async Task<Results<NotFound, Ok<DishDto>>> GetByIdAsync(Guid id, DishesDbContext db, IMapper mapper, [FromServices] ILogger<DishDto> logger)
     {
         logger.LogInformation("Fetching dish by id: {Id}", id);
-        var dish = await db.Dishes.FirstOrDefaultAsync(d => d.Id == id);
+        var dish = await db.Dishes.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
         if (dish is null)
         {
             logger.LogWarning("Dish not found by id: {Id}", id);

@@ -1,9 +1,10 @@
 using DishesApi.DbContexts;
-using Microsoft.EntityFrameworkCore;
 using DishesApi.EndpointBuilders;
-using FluentValidation;
 using DishesApi.Validators;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +22,6 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateDishDtoValidator>();
 
 // Configure JWT authentication using settings from appsettings.json
 
-
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer();
 
@@ -33,32 +33,38 @@ builder.Services.AddAuthorizationBuilder()
             .RequireRole("admin")
             .RequireClaim("country", "Belgium"));
 
-var app = builder.Build();
+// Add Swagger/OpenAPI services
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("MyBearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Description = "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT"
+    });
 
-//// Configure the HTTP request pipeline.
-//if (!app.Environment.IsDevelopment())
-//{
-//    app.UseExceptionHandler(); // Logs exceptions globally
-//}
-//else
-//{
-//    app.UseDeveloperExceptionPage();
-//}
+    //It has differences in older versions like 6.5 of Microsoft.AspNetCore.OpenApi package
+    //Maybe there should be used older version of it.
+    options.AddSecurityRequirement(openApiDocument => new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecuritySchemeReference("MyBearer", openApiDocument)
+            {
+                Description = "JWT Authorization header using the Bear",
+            },
+            new List<string>()
+        }
+    });
+});
+
+var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
 {
-
-    //app.UseExceptionHandler();
-    //app.UseExceptionHandler(configureApplicationBuilder =>
-    //{
-    //    configureApplicationBuilder.Run(async context =>
-    //    {
-    //        context.Response.StatusCode = (int)System.Net.HttpStatusCode.InternalServerError;
-    //        context.Response.ContentType = "text/html";
-    //        await context.Response.WriteAsync("An unexpected problem happened.");
-    //    });
-    //});
-
     if (!app.Environment.IsDevelopment())
     {
         app.UseExceptionHandler("/Error");
@@ -87,6 +93,10 @@ app.Use(async (context, next) =>
 });
 
 app.UseHttpsRedirection();
+
+// Enable Swagger middleware
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseAuthentication();
 app.UseAuthorization();

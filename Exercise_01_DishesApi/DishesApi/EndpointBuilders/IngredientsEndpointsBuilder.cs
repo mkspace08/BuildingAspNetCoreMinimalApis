@@ -12,7 +12,12 @@ public static class IngredientsEndpointsBuilder
     public static void MapIngredientsEndpoints(this IEndpointRouteBuilder app)
     {
         var ingredients = app.MapGroup("/dishes/{dishId:guid}/ingredients");
-        ingredients.MapGet("", GetByDishIdAsync);
+
+        ingredients.MapGet("", GetByDishIdAsync)
+            .WithName("GetIngredientsForDish")
+            //.WithOpenApi()
+            .WithSummary("Get ingredients for a dish.")
+            .WithDescription("Returns the list of ingredients associated with the dish identified by the provided GUID.");
         // Add more ingredient endpoints here as needed
     }
 
